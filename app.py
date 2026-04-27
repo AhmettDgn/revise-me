@@ -14,6 +14,8 @@ import random
 import os
 from werkzeug.utils import secure_filename
 import secrets
+import matplotlib
+matplotlib.use('Agg')  # sunucuda display olmadan çalışmak için
 import matplotlib.pyplot as plt
 import pandas as pd
 import io
