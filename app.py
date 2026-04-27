@@ -110,6 +110,7 @@ class Question(db.Model):
     Repeat2Date = db.Column(db.DateTime)
     Repeat3Date = db.Column(db.DateTime)
     IsCompleted = db.Column(db.Boolean, default=False)
+    CompletedAt = db.Column(db.DateTime, nullable=True)
     IsViewed = db.Column(db.Boolean, default=False)
     Explanation = db.Column(db.Text)
     ImagePath = db.Column(db.String(255))
@@ -421,10 +422,10 @@ def reminders():
     today = datetime.now().date()
     questions = Question.query.filter(
         Question.UserId == current_user.UserId,
-        db.text("CAST([Questions].[Repeat1Date] AS DATE) > :today"),
+        db.func.cast(Question.Repeat1Date, db.Date) > today,
         Question.IsCompleted == False,
         Question.RepeatCount < 3
-    ).params(today=today).order_by(Question.Repeat1Date).all()
+    ).order_by(Question.Repeat1Date).all()
     
     categories = Category.query.all()
     return render_template('reminders.html', questions=questions, categories=categories, section='takipsistemi', show_sidebar=True)
@@ -441,9 +442,9 @@ def index():
     today = datetime.now().date()
     daily_questions_count = Question.query.filter(
         Question.UserId == current_user.UserId,
-        db.text("CAST([Questions].[Repeat1Date] AS DATE) = :today"),
+        db.func.cast(Question.Repeat1Date, db.Date) == today,
         Question.IsCompleted == False
-    ).params(today=today).count()
+    ).count()
 
     # Toplam soru sayısı (mevcut index verisi)
     total_questions_count = Question.query.filter_by(
@@ -693,8 +694,8 @@ def gorevlerim():
     completed_tasks_report = Task.query.filter(
         Task.UserId == current_user.UserId,
         Task.Status == 'completed',
-        db.text("CAST([Tasks].[CompletedAt] AS DATE) = :today")
-    ).params(today=today).all()
+        db.func.cast(Task.CompletedAt, db.Date) == today
+    ).all()
     # Gecikmiş görevler (Status='new' ve DueDate < now)
     overdue_tasks_report = Task.query.filter(
         Task.UserId == current_user.UserId,
@@ -707,19 +708,19 @@ def gorevlerim():
     try:
         total_time = db.session.query(db.func.sum(TaskTime.Duration)).join(Task).filter(
             Task.UserId == current_user.UserId,
-            db.text("CAST([TaskTimes].[StartTime] AS DATE) = :today")
-        ).params(today=today).scalar() or 0
-    except: # Eğer TaskTime veya ilişki bulunamazsa hata olmaması için
-         total_time = 0
+            db.func.cast(TaskTime.StartTime, db.Date) == today
+        ).scalar() or 0
+    except:
+        total_time = 0
 
     # Pomodoro süreleri (Serbest Çalışma görevlerinden)
     try:
         pomodoro_time = db.session.query(db.func.sum(TaskTime.Duration)).join(Task).filter(
             Task.UserId == current_user.UserId,
             Task.Title == 'Serbest Çalışma',
-            db.text("CAST([TaskTimes].[StartTime] AS DATE) = :today")
-        ).params(today=today).scalar() or 0
-    except: # Eğer TaskTime veya ilişki bulunamazsa hata olmaması için
+            db.func.cast(TaskTime.StartTime, db.Date) == today
+        ).scalar() or 0
+    except:
         pomodoro_time = 0
 
     total_tasks_for_rate = len(completed_tasks_report) + len(overdue_tasks_report)
@@ -1387,8 +1388,8 @@ def report():
     completed_tasks = Task.query.filter(
         Task.UserId == current_user.UserId,
         Task.Status == 'completed',
-        db.text("CAST([Tasks].[CompletedAt] AS DATE) = :today")
-    ).params(today=today).all()
+        db.func.cast(Task.CompletedAt, db.Date) == today
+    ).all()
     # Gecikmiş görevler (Status='new' ve DueDate < now)
     overdue_tasks = Task.query.filter(
         Task.UserId == current_user.UserId,
@@ -1398,14 +1399,14 @@ def report():
     # Toplam çalışma süresi (görev türü fark etmeksizin, o günün tüm TaskTime kayıtları)
     total_time = db.session.query(db.func.sum(TaskTime.Duration)).join(Task).filter(
         Task.UserId == current_user.UserId,
-        db.text("CAST([TaskTimes].[StartTime] AS DATE) = :today")
-    ).params(today=today).scalar() or 0
+        db.func.cast(TaskTime.StartTime, db.Date) == today
+    ).scalar() or 0
     # Pomodoro süreleri (Serbest Çalışma görevlerinden)
     pomodoro_time = db.session.query(db.func.sum(TaskTime.Duration)).join(Task).filter(
         Task.UserId == current_user.UserId,
         Task.Title == 'Serbest Çalışma',
-        db.text("CAST([TaskTimes].[StartTime] AS DATE) = :today")
-    ).params(today=today).scalar() or 0
+        db.func.cast(TaskTime.StartTime, db.Date) == today
+    ).scalar() or 0
     total_tasks = len(completed_tasks) + len(overdue_tasks)
     completion_rate = int((len(completed_tasks) / total_tasks) * 100) if total_tasks > 0 else 0
     return render_template(
@@ -1457,24 +1458,24 @@ def progress_report():
     weekly_questions = Question.query.filter(
         Question.UserId == current_user.UserId,
         Question.IsCompleted == True,
-        db.text("CAST([Questions].[CompletedAt] AS DATE) >= :week_ago")
-    ).params(week_ago=week_ago).all()
+        db.func.cast(Question.CompletedAt, db.Date) >= week_ago
+    ).all()
     monthly_questions = Question.query.filter(
         Question.UserId == current_user.UserId,
         Question.IsCompleted == True,
-        db.text("CAST([Questions].[CompletedAt] AS DATE) >= :month_ago")
-    ).params(month_ago=month_ago).all()
+        db.func.cast(Question.CompletedAt, db.Date) >= month_ago
+    ).all()
 
     weekly_tasks = Task.query.filter(
         Task.UserId == current_user.UserId,
         Task.Status == 'completed',
-        db.text("CAST([Tasks].[CompletedAt] AS DATE) >= :week_ago")
-    ).params(week_ago=week_ago).all()
+        db.func.cast(Task.CompletedAt, db.Date) >= week_ago
+    ).all()
     monthly_tasks = Task.query.filter(
         Task.UserId == current_user.UserId,
         Task.Status == 'completed',
-        db.text("CAST([Tasks].[CompletedAt] AS DATE) >= :month_ago")
-    ).params(month_ago=month_ago).all()
+        db.func.cast(Task.CompletedAt, db.Date) >= month_ago
+    ).all()
 
     # Kategori bazlı dağılım (haftalık)
     categories = Category.query.all()
@@ -1484,8 +1485,8 @@ def progress_report():
             Question.UserId == current_user.UserId,
             Question.IsCompleted == True,
             Question.CategoryId == category.CategoryId,
-            db.text("CAST([Questions].[CompletedAt] AS DATE) >= :week_ago")
-        ).params(week_ago=week_ago).count()
+            db.func.cast(Question.CompletedAt, db.Date) >= week_ago
+        ).count()
         category_stats.append({
             'category': category.Name,
             'count': count
@@ -1494,8 +1495,8 @@ def progress_report():
     # Başarı oranı (haftalık)
     total_weekly_questions = Question.query.filter(
         Question.UserId == current_user.UserId,
-        db.text("CAST([Questions].[Repeat1Date] AS DATE) >= :week_ago")
-    ).params(week_ago=week_ago).count()
+        db.func.cast(Question.Repeat1Date, db.Date) >= week_ago
+    ).count()
     completed_weekly_questions = len(weekly_questions)
     success_rate = int((completed_weekly_questions / total_weekly_questions) * 100) if total_weekly_questions > 0 else 0
 
@@ -2139,6 +2140,10 @@ def next_question(current_id):
         return jsonify({'next_id': next_question.QuestionId})
     else:
         return jsonify({'next_id': None})
+
+with app.app_context():
+    db.create_all()
+    create_categories()
 
 if __name__ == '__main__':
     app.run(debug=True)
