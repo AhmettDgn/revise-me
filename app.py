@@ -1307,9 +1307,7 @@ def schedule_reminder_check():
         check_reminders()
         time.sleep(60)  # Her dakika kontrol et
 
-# Arka planda çalışacak hatırlatıcı thread'ini başlat
-reminder_thread = threading.Thread(target=schedule_reminder_check, daemon=True)
-reminder_thread.start()
+# Thread app.py'nin sonunda, db.create_all()'dan sonra başlatılıyor
 
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
@@ -2144,6 +2142,10 @@ def next_question(current_id):
 with app.app_context():
     db.create_all()
     create_categories()
+
+# Tablolar oluştuktan sonra reminder thread'ini başlat
+reminder_thread = threading.Thread(target=schedule_reminder_check, daemon=True)
+reminder_thread.start()
 
 if __name__ == '__main__':
     app.run(debug=True)
